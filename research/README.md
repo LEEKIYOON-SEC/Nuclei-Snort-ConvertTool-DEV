@@ -90,6 +90,47 @@ ET 룰이 있는 CVE 272개 중에서도 97개(36%)는 nuclei의 요청에 경�
 
 같은 CVE를 다루는 ET 룰 378개 중 요청 측 HTTP 룰 362개는 URI+바디 44%, URI만 32%, pcre 사용 44%였다. 378개의 90%에 `confidence High`가 붙어 있었다.
 
+## 추가 측정 (2026-11-16): nuclei 외의 정보원
+
+### 다른 정보원의 규모와 nuclei와의 겹침
+
+"nuclei에 없는 CVE"는 nuclei `http/cves` 4,522개 기준이고, 괄호는 그중 ET Open 룰도 없는 것이다.
+
+| 정보원 | 형태 | 규모 | nuclei에 없는 CVE | 그중 2024년 이후 |
+|---|---|---|---|---|
+| Metasploit HTTP exploit 모듈 | Ruby 코드 | 1,204개 모듈, CVE 1,330개 | 928 (804) | 152 |
+| Exploit-DB webapps | 자유 형식 코드·글 | 27,515건, CVE 14,695개 | 13,956 (13,619) | 199 |
+| PoC-in-GitHub 색인 | 자유 형식 저장소 | CVE 11,774개 | 10,358 (9,999) | 5,466 |
+| afrog | YAML PoC | 1,732개 파일, CVE 449개 | 40 (28) | 4 |
+| xray | YAML PoC | 352개 파일, CVE 143개 | 4 (3) | 0 |
+| Burp BChecks | 전용 DSL | 268개 파일, CVE 52개 | 10 (8) | 1 |
+
+- Exploit-DB webapps의 연간 등록 수는 2020년 943건, 2021년 904건에서 2024년 227건, 2025년 219건, 2026년 155건으로 줄었다.
+- Metasploit HTTP exploit 모듈은 공개 연도 기준으로 매년 57~77개가 추가된다.
+- Vulhub(취약 환경 Docker 모음)은 환경 334개, CVE 251개이고 그중 160개가 nuclei 템플릿과 겹친다. 룰의 출처가 아니라 실제 취약 프로그램으로 검증할 대상이다. 이 세션에서 띄워 보지는 않았다.
+- CISA KEV는 CVE 1,781개이고 nuclei HTTP 템플릿이 있는 것은 490개다. nuclei 템플릿도 ET 룰도 없는 1,051개는 Microsoft 315, Apple 95, Google 77 순이다.
+- Sigma의 webserver 룰은 86개, proxy 룰은 56개다. OWASP CRS는 SecRule 622개이고 CVE를 언급하는 것은 20개다.
+- abuse.ch: JA3 룰 97개(Suricata 전용 키워드), Feodo 룰 5개는 받을 수 있었다. URLhaus IDS 룰셋, ThreatFox Suricata 룰, 두 곳의 CSV 내보내기는 인증 없이 요청하면 HTTP 410이었다. 인증 키로 받을 수 있는지는 확인하지 않았다.
+
+### ET Open 룰을 Snort 3로 옮기기
+
+- ET Open 배포 목록은 `snort-2.9.0`, `snort-edge`, `suricata-5.0`, `suricata-7.0.3`이다. `snort-edge`도 Snort 2 문법이었다. Snort 3용은 없다.
+- Snort 2.9판 룰 371개(nuclei와 CVE가 겹치는 것)를 Snort 3에 그대로 넣으면 오류 856건으로 로드되지 않는다.
+- 공식 변환기 `snort2lua`는 활성 룰 51,248개 중 51,204개를 변환했고, 변환된 전체를 Snort 3에 올리면 오류는 6건이었다.
+- 같은 캡처(ET 룰이 있는 CVE 272개)에 재생한 결과는 다음과 같다.
+
+| 엔진과 룰 | 해당 CVE 룰이 경보를 낸 템플릿 |
+|---|---|
+| Suricata, ET Suricata판 | 175 |
+| Snort 2.9, ET Snort 2.9판 | 162 |
+| Snort 3, `snort2lua` 변환본 | 118 |
+
+- 룰 단위로는 Snort 2.9에서 경보가 난 171건 중 변환 후 Snort 3에서도 난 것이 120건(70%)이다. 나머지 51건은 오류 없이 로드되지만 경보가 나지 않는다.
+- 잃은 51건의 88%에 `pcre`가 있다(유지된 것은 42%). 확인한 예에서는 HTTP 버퍼의 content 뒤에 오는 상대 위치 `pcre`를 변환기가 `pkt_data`로 옮겼다.
+- 표본은 nuclei 트래픽이 있는 웹 CVE 룰뿐이다. ET 전체 5만여 룰에 같은 비율이 적용된다고 볼 근거는 없다.
+
+스크립트: `fetch_alt.sh`, `alt_sources.py`, `et_to_snort3.sh`.
+
 ## 검증 장치에서 새로 확인한 함정
 
 | 현상 | 조치 |
